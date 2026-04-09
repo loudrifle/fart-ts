@@ -1,108 +1,90 @@
-const farts = {
-  toot: "fart1",
-  ripper: "fart2",
-  plop: "fart3",
-  squit: "fart4",
-  raspberry: "fart5",
-  squat: "fart6",
-  tuppence: "fart7",
-  liftoff: "fart8",
-  trumpet: "fart9",
-  fizzler: "fart10",
-  windy: "fart11",
-  eine: "fart12",
-  fartception: "fart13",
-  fartpoint1: "fart14",
-};
+// All available fart sound names, ordered to match fart1.mp3 … fart14.mp3
+const fartNames = [
+  "toot", "ripper", "plop", "squit", "raspberry", "squat",
+  "tuppence", "liftoff", "trumpet", "fizzler", "windy",
+  "eine", "fartception", "fartpoint1",
+] as const;
 
-type FartName = keyof typeof farts;
+export type FartName = (typeof fartNames)[number];
 
-interface Options {
+export interface Options {
   defaultSound: FartName;
   loop: boolean;
   volume: number; // 0-100
 }
 
-/**
- * Represents the fart audio controller.
- *
- * This class handles audio initialization, fallback player loading for
- * legacy browsers, and configuration of fart playback options.
- *
- * @class Fart
- */
 export class Fart {
   public options: Options;
-  public fartPlayer: HTMLAudioElement | null = null;
-  public preloaded = false;
-  /**
-   * Creates a new Fart instance.
-   *
-   * @constructor
-   * @param {Partial<Options>} [opts={}] - Partial configuration object to override defaults.
-   */
+  // Main player used for playback
+  public fartPlayer: HTMLAudioElement;
+  // Resolved once at init: ".mp3" if supported, otherwise ".wav"
+  private ext: string;
+  // One hidden audio element per sound, preloaded in the background
+  private preloadPlayers: Partial<Record<FartName, HTMLAudioElement>> = {};
+
   constructor(opts: Partial<Options> = {}) {
     this.options = {
       defaultSound: opts.defaultSound ?? "raspberry",
       loop: opts.loop ?? false,
-      volume: opts.volume ?? 0,
+      volume: opts.volume ?? 100,
     };
 
-    this.init();
-  }
-  /**
-   * Initializes the audio player.
-   */
-  init() {
+    // Probe format support once so we don't repeat the check on every play()
+    const probe = document.createElement("audio");
+    this.ext = probe.canPlayType("audio/mp3") ? ".mp3" : ".wav";
+
     this.fartPlayer = document.createElement("audio");
     this.preload();
   }
 
-  getFartPlayer() {
-    const fartPlayer = this.fartPlayer;
-    if (!fartPlayer) throw new Error("Fart Player isn't initialized");
-    return fartPlayer;
-  }
-
-  preload() {
-    const fartPlayer = this.getFartPlayer();
-    if (!this.preloaded) {
-      for (const f in farts) {
-        const ext = fartPlayer.canPlayType("audio/mp3") ? ".mp3" : ".wav";
-        fartPlayer.setAttribute("src", "/farts/" + farts[f as FartName] + ext);
-      }
-      this.preloaded = true;
+  // Creates a hidden audio element for each sound so the browser fetches
+  // and buffers them before the user clicks anything
+  preload(): void {
+    for (const name of fartNames) {
+      const audio = document.createElement("audio");
+      audio.src = this.srcFor(name);
+      audio.preload = "auto";
+      this.preloadPlayers[name] = audio;
     }
   }
 
-  stop() {
-    this.getFartPlayer().pause();
+  stop(): void {
+    this.fartPlayer.pause();
   }
 
-  remove() {
-    this.getFartPlayer().remove();
+  remove(): void {
+    this.fartPlayer.remove();
   }
 
-  random() {
-    const keys = Object.keys(farts) as FartName[];
-    const fart = keys[Math.floor(keys.length * Math.random())];
-    this.play(fart);
+  random(): void {
+    const name = fartNames[Math.floor(fartNames.length * Math.random())];
+    this.play(name);
   }
 
-  play(sound?: FartName, callback?: () => void) {
-    const fart = sound ?? this.options.defaultSound;
-    const fartPlayer = this.getFartPlayer();
-    const ext = fartPlayer.canPlayType("audio/mp3") ? ".mp3" : ".wav";
-    fartPlayer.setAttribute("src", "/farts/" + farts[fart] + ext);
-    fartPlayer.loop = this.options.loop;
-    fartPlayer.volume = this.options.volume / 100;
-    fartPlayer.play();
+  play(sound?: FartName, callback?: () => void): void {
+    const name = sound ?? this.options.defaultSound;
+    const player = this.fartPlayer;
+    player.src = this.srcFor(name);
+    player.loop = this.options.loop;
+    player.volume = this.options.volume / 100;
 
-    const onEnded = () => {
-      callback?.();
-      fartPlayer.removeEventListener("ended", onEnded);
-    };
+    // play() returns a Promise that rejects if autoplay is blocked by the browser
+    player.play().catch((err) => console.error("Fart playback failed:", err));
 
-    fartPlayer.addEventListener("ended", onEnded);
+    if (callback) {
+      // Register a one-shot listener so callback fires exactly once per play
+      const onEnded = () => {
+        callback();
+        player.removeEventListener("ended", onEnded);
+      };
+      player.addEventListener("ended", onEnded);
+    }
+  }
+
+  // Maps a sound name to its file path using its index in fartNames
+  private srcFor(name: FartName): string {
+    return `/farts/fart${fartNames.indexOf(name) + 1}${this.ext}`;
   }
 }
+
+export default Fart;
