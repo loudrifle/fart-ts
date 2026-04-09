@@ -34,10 +34,10 @@ const fart = new Fart({
 
 ## Setup
 
-Sound files must be served from `/farts/` as `fart1.mp3` / `fart1.wav` … `fart14.mp3` / `fart14.wav`. The library picks `.mp3` or `.wav` at runtime based on browser support.
-
-Compile with:
-
 ```sh
-tsc fart.ts
+npm install
+npm run dev    # dev server at http://localhost:5173
+npm run build  # production build → dist/
 ```
+
+Sound files must be placed in `public/farts/` as `fart1.mp3` … `fart14.mp3` (or `.wav`). The library picks the format at runtime based on browser support.
