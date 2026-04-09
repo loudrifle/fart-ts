@@ -31,7 +31,7 @@ interface Options {
  *
  * @class Fart
  */
-class Fart {
+export class Fart {
   public options: Options;
   public fartPlayer: HTMLAudioElement | null = null;
   public preloaded = false;
@@ -93,7 +93,7 @@ class Fart {
     const fart = sound ?? this.options.defaultSound;
     const fartPlayer = this.getFartPlayer();
     const ext = fartPlayer.canPlayType("audio/mp3") ? ".mp3" : ".wav";
-    fartPlayer.setAttribute("src", "/farts/" + fart + ext);
+    fartPlayer.setAttribute("src", "/farts/" + farts[fart] + ext);
     fartPlayer.loop = this.options.loop;
     fartPlayer.volume = this.options.volume / 100;
     fartPlayer.play();
